@@ -145,21 +145,47 @@ check('recognition ran, not a text layer', recognised.source, 'ocr')
 check('lines came back with positions', recognised.lines.length > 20, true)
 
 // The window must refuse to go anywhere.
-const navigated = await evaluate(`
+//
+// Asserted on the origin, not on the whole URL: the router appends its own
+// "#/" shortly after mount, and an earlier version of this check compared
+// href exactly, so that rewrite could land mid-test and look like a
+// navigation. What matters is that the document never leaves file://.
+const stillLocal = await evaluate(`
   (async () => {
-    const before = location.href
-    try { location.href = 'https://example.com' } catch {}
-    await new Promise(r => setTimeout(r, 400))
-    return location.href === before
+    const origin = location.origin
+    const protocol = location.protocol
+    for (const target of ['https://example.com', 'http://example.com/x', 'data:text/html,x']) {
+      try { location.href = target } catch {}
+    }
+    await new Promise(r => setTimeout(r, 600))
+    return {
+      sameOrigin: location.origin === origin,
+      sameProtocol: location.protocol === protocol,
+      reachedTarget: location.href.includes('example.com'),
+      stillOurPage: Boolean(document.querySelector('#root')),
+    }
   })()
 `)
-check('navigation away is blocked', navigated, true)
+check('navigation away does not change the origin', stillLocal.sameOrigin, true)
+check('navigation away does not change the protocol', stillLocal.sameProtocol, true)
+check('the target site is never reached', stillLocal.reachedTarget, false)
+check('our page is still the one loaded', stillLocal.stillOurPage, true)
 
 // Outbound network must fail; connect-src is 'none'.
 const blocked = await evaluate(`
   fetch('https://example.com').then(() => 'allowed').catch(() => 'blocked')
 `)
 check('outbound fetch is blocked', blocked, 'blocked')
+
+// about:blank is checked last and through the browser rather than the page.
+// Chromium treats it as the initial empty document, so it is not preventable;
+// the app notices and reloads itself. Doing this earlier would invalidate the
+// debugging session that every check above depends on.
+await evaluate(`try { location.href = 'about:blank' } catch (e) {}`).catch(() => {})
+await new Promise((r) => setTimeout(r, 2000))
+const afterBlank = await fetch(`http://127.0.0.1:${PORT}/json/list`).then((r) => r.json()).catch(() => [])
+const current = afterBlank.find((t) => t.type === 'page')
+check('the app recovers from about:blank', Boolean(current && current.url.startsWith('file://')), true)
 
 socket.close()
 

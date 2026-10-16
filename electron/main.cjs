@@ -77,9 +77,28 @@ function createWindow() {
   })
 
   // Refuse to navigate anywhere, including a link pasted into a description.
+  const mayNavigateTo = (url) => {
+    if (isDev && url.startsWith(DEV_SERVER_URL)) return true
+    // The packaged app is served from file://; nothing else is ours.
+    return url.startsWith('file://')
+  }
+
   window.webContents.on('will-navigate', (event, url) => {
-    const isDevServer = isDev && url.startsWith(DEV_SERVER_URL)
-    if (!isDevServer) event.preventDefault()
+    if (!mayNavigateTo(url)) event.preventDefault()
+  })
+
+  window.webContents.on('will-frame-navigate', (details) => {
+    if (!mayNavigateTo(details.url)) details.preventDefault()
+  })
+
+  // Chromium treats about:blank as the initial empty document rather than a
+  // navigation, so neither handler above sees it and the window would be left
+  // blank. Prevention is not available, so recover instead: if the window
+  // ever ends up somewhere that is not ours, put the app back.
+  window.webContents.on('did-navigate', (_event, url) => {
+    if (mayNavigateTo(url)) return
+    if (isDev) window.loadURL(DEV_SERVER_URL)
+    else window.loadFile(path.join(__dirname, '..', 'dist', 'index.html'))
   })
   window.webContents.setWindowOpenHandler(() => ({ action: 'deny' }))
   window.webContents.on('will-attach-webview', (event) => event.preventDefault())

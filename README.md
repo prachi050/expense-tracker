@@ -42,6 +42,9 @@ net, so you can check them against the totals printed on your statement.
 - The interface runs sandboxed with no access to Node or the file system. The
   only way it touches a file is through named operations in `electron/preload.cjs`.
 - Navigating away from the app and opening new windows are both refused.
+  `about:blank` is the one case Chromium will not let an app prevent, because
+  it counts as the initial empty document rather than a navigation, so the
+  window notices and reloads itself instead.
 - All permission requests (camera, location and the rest) are denied.
 - Data lives in one JSON file under Application Support, written with
   owner-only permissions (0600), as are backups and exports. Saves write to a
