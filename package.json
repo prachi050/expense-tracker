@@ -6,14 +6,15 @@
   "scripts": {
     "dev": "node scripts/dev.mjs",
     "start": "npm run build && electron .",
-    "build": "tsc -b && vite build",
-    "test": "tsx scripts/test-core.ts && tsx scripts/test-import.ts",
+    "build": "npm run build:native && tsc -b && vite build",
+    "test": "tsx scripts/test-core.ts && tsx scripts/test-redact.ts && tsx scripts/test-pdfrows.ts && tsx scripts/test-import.ts && tsx scripts/test-pdf-e2e.ts",
     "lint": "oxlint src",
     "package": "npm run build && electron-builder --mac --dir",
     "dmg": "npm run build && electron-builder --mac",
     "smoke": "npm run build && electron scripts/smoke.cjs",
     "e2e": "npm run build && node scripts/e2e.mjs",
-    "test:all": "npm test && npm run e2e"
+    "test:all": "npm test && npm run e2e",
+    "build:native": "swiftc -O -o native/pdftext native/pdftext.swift && swiftc -O -o native/makefixture native/makefixture.swift"
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.3.3",
@@ -58,7 +59,13 @@
         "dir",
         "dmg"
       ]
-    }
+    },
+    "extraResources": [
+      {
+        "from": "native/pdftext",
+        "to": "pdftext"
+      }
+    ]
   },
   "author": "Prachi Patel"
 }

@@ -13,7 +13,7 @@ function check(name: string, actual: unknown, expected: unknown) {
   console.log(`FAIL ${name}\n  expected ${e}\n  actual   ${a}`)
 }
 
-function importCsv(text: string, positiveIsSpend = false, fileName = 'test.csv') {
+function importCsv(text: string, positiveIsSpend = false, fileName = 'test.csv', mask = true) {
   const table = parseCsv(text)
   const detection = detectColumns(table.rows)
   const dataRows = table.rows.slice(detection.firstDataRow)
@@ -29,6 +29,7 @@ function importCsv(text: string, positiveIsSpend = false, fileName = 'test.csv')
       fileName,
       importedAt: '2026-10-16T00:00:00.000Z',
       lineNumbers: lines,
+      maskAccountNumbers: mask,
     }),
   }
 }
@@ -146,6 +147,27 @@ const creditCard = `Date,Description,Amount
 `
 check('positive means spend when told so', importCsv(creditCard, true).result.transactions[0].amountCents, -6499)
 check('positive means income otherwise', importCsv(creditCard, false).result.transactions[0].amountCents, 6499)
+
+// ---------- Account numbers never reach a stored record ----------
+const withAccounts = `Transaction Date,Posted Date,Card No.,Account Number,Description,Category,Debit,Credit
+2026-10-12,2026-10-13,4111111111111111,987654321098,ONLINE TRANSFER TO ACCT 987654321098,Transfer,500.00,
+2026-10-11,2026-10-12,4111111111111111,987654321098,ZELLE PAYMENT FROM JOHN SMITH 20261011 BACDEFGH,Payment,,250.00
+`
+const accountRun = importCsv(withAccounts)
+const storedJson = JSON.stringify(accountRun.result.transactions)
+check('no run of seven or more digits is stored', /\d{7,}/.test(storedJson), false)
+check('card number column never imported', storedJson.includes('4111111111111111'), false)
+check('account number column never imported', storedJson.includes('987654321098'), false)
+check('description keeps its last four', accountRun.result.transactions.find(t => t.kind === 'transfer')?.description, 'ONLINE TRANSFER TO ACCT \u2022\u2022\u2022\u20221098')
+check('sender name still extracted after masking', accountRun.result.transactions.find(t => t.kind === 'zelle-in')?.counterparty, 'John Smith')
+check('amounts unaffected by masking', accountRun.result.transactions.find(t => t.kind === 'transfer')?.amountCents, -50000)
+
+// Turning masking off and on must not create duplicates of the same row.
+const unmasked = importCsv(withAccounts, false, 'acct.csv', false)
+check('masking off keeps the full text', unmasked.result.transactions[0].description.includes('987654321098'), true)
+const idsMasked = accountRun.result.transactions.map(t => t.id).sort()
+const idsUnmasked = unmasked.result.transactions.map(t => t.id).sort()
+check('identifiers match either way', idsMasked, idsUnmasked)
 
 // ---------- Zelle name extraction across bank wordings ----------
 const names: [string, string | null][] = [

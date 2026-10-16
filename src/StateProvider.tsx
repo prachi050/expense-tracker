@@ -9,7 +9,8 @@ import {
 import type { ImportBatch } from './lib/types'
 import type { UserRule } from './lib/categorize'
 import { categorize } from './lib/categorize'
-import { EMPTY_DATABASE, readDatabase, type Database } from './lib/storage'
+import { EMPTY_DATABASE, readDatabase, type Database, type Settings } from './lib/storage'
+import { maskAccountNumbers } from './lib/redact'
 import { mergeTransactions } from './lib/import'
 import { StateContext, type StateValue, type Status } from './state'
 
@@ -107,6 +108,25 @@ export function StateProvider({ children }: { children: ReactNode }) {
     [database, persist],
   )
 
+  const setSetting = useCallback(
+    <K extends keyof Settings>(key: K, value: Settings[K]) => {
+      void persist({ ...database, settings: { ...database.settings, [key]: value } })
+    },
+    [database, persist],
+  )
+
+  const scrubStoredAccountNumbers = useCallback(async () => {
+    let changed = 0
+    const transactions = database.transactions.map((txn) => {
+      const masked = maskAccountNumbers(txn.description)
+      if (masked === txn.description) return txn
+      changed += 1
+      return { ...txn, description: masked }
+    })
+    if (changed > 0) await persist({ ...database, transactions })
+    return changed
+  }, [database, persist])
+
   const eraseEverything = useCallback(async () => {
     await persist(EMPTY_DATABASE)
   }, [persist])
@@ -126,14 +146,17 @@ export function StateProvider({ children }: { children: ReactNode }) {
       transactions: database.transactions,
       rules: database.rules,
       batches: database.batches,
+      settings: database.settings,
       latestImportAt,
       commitImport,
       setCategory,
       addRule,
       removeRule,
+      setSetting,
+      scrubStoredAccountNumbers,
       eraseEverything,
     }),
-    [status, error, database, latestImportAt, commitImport, setCategory, addRule, removeRule, eraseEverything],
+    [status, error, database, latestImportAt, commitImport, setCategory, addRule, removeRule, setSetting, scrubStoredAccountNumbers, eraseEverything],
   )
 
   return <StateContext.Provider value={value}>{children}</StateContext.Provider>

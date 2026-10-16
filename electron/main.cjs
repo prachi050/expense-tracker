@@ -9,6 +9,7 @@
  */
 
 const { app, BrowserWindow, dialog, ipcMain, shell, session } = require('electron')
+const { execFile } = require('node:child_process')
 const fs = require('node:fs/promises')
 const path = require('node:path')
 
@@ -109,7 +110,7 @@ ipcMain.handle('statements:pick', async () => {
     title: 'Choose bank statement files',
     properties: ['openFile', 'multiSelections'],
     filters: [
-      { name: 'Statements', extensions: ['csv', 'tsv', 'txt', 'qfx', 'ofx', 'qbo'] },
+      { name: 'Statements', extensions: ['csv', 'tsv', 'txt', 'qfx', 'ofx', 'qbo', 'pdf'] },
       { name: 'All files', extensions: ['*'] },
     ],
   })
@@ -118,8 +119,7 @@ ipcMain.handle('statements:pick', async () => {
   const files = []
   for (const filePath of result.filePaths) {
     try {
-      const content = await fs.readFile(filePath, 'utf8')
-      files.push({ name: path.basename(filePath), content })
+      files.push(await readStatement(filePath))
     } catch (error) {
       files.push({ name: path.basename(filePath), error: String(error && error.message) })
     }
@@ -127,13 +127,47 @@ ipcMain.handle('statements:pick', async () => {
   return files
 })
 
+/** The bundled reader. It uses only macOS frameworks and never goes online. */
+function readerPath() {
+  return app.isPackaged
+    ? path.join(process.resourcesPath, 'pdftext')
+    : path.join(__dirname, '..', 'native', 'pdftext')
+}
+
+function readPdf(filePath) {
+  return new Promise((resolve, reject) => {
+    execFile(
+      readerPath(),
+      [filePath, '3'],
+      { maxBuffer: 64 * 1024 * 1024, timeout: 10 * 60 * 1000 },
+      (error, stdout, stderr) => {
+        if (error) {
+          reject(new Error(
+            `Could not read that PDF. ${String(stderr || error.message).trim()}`,
+          ))
+          return
+        }
+        resolve(stdout)
+      },
+    )
+  })
+}
+
+async function readStatement(filePath) {
+  const name = path.basename(filePath)
+  if (path.extname(filePath).toLowerCase() === '.pdf') {
+    const recognised = await readPdf(filePath)
+    return { name, content: recognised, kind: 'pdf' }
+  }
+  return { name, content: await fs.readFile(filePath, 'utf8'), kind: 'text' }
+}
+
 /** Used by drag and drop, where the renderer only has a path. */
 ipcMain.handle('statements:read', async (_event, filePath) => {
   if (typeof filePath !== 'string' || filePath === '') {
     throw new Error('A file path is required')
   }
-  const content = await fs.readFile(filePath, 'utf8')
-  return { name: path.basename(filePath), content }
+  return readStatement(filePath)
 })
 
 // ------------------------------------------------------------------ storage

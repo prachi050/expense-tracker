@@ -51,6 +51,10 @@ protected by your Mac account and by FileVault if you have it on.
 - If that file ever cannot be read, the app shows an error instead of starting
   empty, because starting empty would overwrite it on the next save.
 
+Reading a PDF needs the two small Swift programs in `native/`, built by
+`npm run build:native` and bundled into the packaged app. They use only macOS
+frameworks.
+
 ## Running it
 
 ```bash
@@ -75,20 +79,38 @@ npm run test:all
 - `scripts/e2e.mjs` starts the real app and drives it over the DevTools
   protocol: data round trips through disk unchanged, the sandbox holds,
   navigation is blocked and outbound requests fail.
+- `scripts/test-pdfrows.ts` covers rebuilding rows from recognised text, using
+  invented figures in a scanned statement's layout.
+- `scripts/test-pdf-e2e.ts` generates a fake scanned statement, reads it back
+  through the real recogniser, and checks the result against the totals that
+  fixture prints.
 - `scripts/smoke.cjs` loads the production bundle under the real
   Content-Security-Policy and reports anything the renderer logged.
 
 ## Statement formats
 
-CSV exported from online banking. Chase, Bank of America, Wells Fargo, Capital
-One and Discover layouts are recognised automatically, including files with
-summary lines above the header and Wells Fargo files with no header at all.
+**CSV** exported from online banking. Chase, Bank of America, Wells Fargo,
+Capital One and Discover layouts are recognised automatically, including files
+with summary lines above the header and Wells Fargo files with no header at
+all.
+
+**PDF**, including a statement that is only screenshots or a scan. Pages are
+read on this Mac with the system text recogniser, which needs no network. A
+PDF that already carries real text uses that instead, since it is exact.
+
+A scanned statement is laid out in columns, and the recogniser hands back each
+column as a separate block, so the text alone cannot say which date belongs to
+which amount. Rows are rebuilt from position: vertical position groups a row,
+horizontal position says which column a cell is. Unsigned amounts take their
+sign from the section heading they sit under.
+
+Because recognition can misread, the import screen compares the rebuilt rows
+against the totals the statement prints for itself and says whether they match
+to the cent. That is a check against the bank's own arithmetic, not against
+the app's.
 
 Anything it cannot work out is shown as dropdowns on the import screen so you
 can set the columns, the day/month order and the sign convention yourself.
-
-PDF statements are not supported. Reading them reliably across banks is a
-different problem; export CSV from online banking instead.
 
 ## How it is put together
 
@@ -102,4 +124,6 @@ different problem; export CSV from online banking instead.
 | `src/lib/categorize.ts` | Keyword rules and your own overrides. |
 | `src/lib/income.ts` | Zelle and deposit detection, sender name extraction. |
 | `electron/main.cjs` | Window, security policy, file and storage operations. |
+| `src/lib/pdfRows.ts` | Rebuilding statement rows from recognised text and position. |
+| `native/pdftext.swift` | Renders PDF pages and runs the macOS text recogniser. |
 | `electron/preload.cjs` | The only bridge between the interface and the disk. |

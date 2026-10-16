@@ -1,11 +1,21 @@
 import type { Transaction, ImportBatch } from './types'
 import type { UserRule } from './categorize'
 
+export interface Settings {
+  /** Remove account numbers from descriptions at import. On by default. */
+  maskAccountNumbers: boolean
+}
+
+export const DEFAULT_SETTINGS: Settings = {
+  maskAccountNumbers: true,
+}
+
 export interface Database {
   version: 1
   transactions: Transaction[]
   rules: UserRule[]
   batches: ImportBatch[]
+  settings: Settings
 }
 
 export const EMPTY_DATABASE: Database = {
@@ -13,6 +23,7 @@ export const EMPTY_DATABASE: Database = {
   transactions: [],
   rules: [],
   batches: [],
+  settings: DEFAULT_SETTINGS,
 }
 
 /** Narrow whatever came off disk into a Database, discarding nothing silently. */
@@ -24,6 +35,7 @@ export function readDatabase(raw: unknown): Database {
     transactions: Array.isArray(candidate.transactions) ? candidate.transactions : [],
     rules: Array.isArray(candidate.rules) ? candidate.rules : [],
     batches: Array.isArray(candidate.batches) ? candidate.batches : [],
+    settings: { ...DEFAULT_SETTINGS, ...(candidate.settings ?? {}) },
   }
 }
 

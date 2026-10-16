@@ -7,6 +7,7 @@
  */
 
 import type { TransactionKind } from './types'
+import { MASK } from './redact'
 
 export interface Classification {
   kind: TransactionKind
@@ -18,6 +19,8 @@ export interface Classification {
  * confirmation numbers, reference ids, dates, and trailing bank codes.
  */
 const NAME_TERMINATORS = [
+  // A masked account number ends the name just as the raw digits used to.
+  new RegExp(MASK),
   /\bON\s+\d/i,
   /\bREF\b/i,
   /\bCONF(IRMATION)?\s*#?/i,
@@ -27,6 +30,8 @@ const NAME_TERMINATORS = [
   /\bWEB\b/i,
   /\bDATE\b/i,
   /\b\d{6,}\b/,
+  // A short digit run left over beside a mask, e.g. "••••1011".
+  /\b\d{4}\b(?=\s|$)/,
   /\b\d{1,2}\/\d{1,2}(\/\d{2,4})?\b/,
   /\s[-–—]\s/,
   /\s{2,}/,

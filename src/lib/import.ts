@@ -3,6 +3,7 @@ import { parseMoney } from './money'
 import { parseDate, type DateOrder } from './dates'
 import { categorize } from './categorize'
 import { classify } from './income'
+import { maskAccountNumbers } from './redact'
 import type { ImportResult, RowError, Transaction } from './types'
 
 export interface ImportOptions {
@@ -21,6 +22,8 @@ export interface ImportOptions {
    * at the line the user can actually go and look at.
    */
   lineNumbers: number[]
+  /** When true, account numbers in descriptions are removed before storing. */
+  maskAccountNumbers: boolean
 }
 
 /**
@@ -60,9 +63,12 @@ export function runImport(rows: string[][], options: ImportOptions): ImportResul
     dataRowCount += 1
 
     const rawDate = row[map.date] ?? ''
-    const rawDescription = [row[map.description] ?? '', ...map.extra.map((i) => row[i] ?? '')]
+    const joined = [row[map.description] ?? '', ...map.extra.map((i) => row[i] ?? '')]
       .filter((part) => part.trim() !== '')
       .join(' — ')
+    // Masked here, before the description is used for anything, so a full
+    // account number is never placed in a record or an identifier.
+    const rawDescription = options.maskAccountNumbers ? maskAccountNumbers(joined) : joined
 
     let date: string
     try {
@@ -113,7 +119,9 @@ export function runImport(rows: string[][], options: ImportOptions): ImportResul
       return
     }
 
-    const key = `${date}|${amountCents}|${normaliseDescription(rawDescription)}`
+    // Keyed off the masked form either way, so turning masking on or off does
+    // not make the same statement look like a different set of transactions.
+    const key = `${date}|${amountCents}|${normaliseDescription(maskAccountNumbers(rawDescription))}`
     const occurrence = seenInThisFile.get(key) ?? 0
     seenInThisFile.set(key, occurrence + 1)
 

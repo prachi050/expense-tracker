@@ -1,9 +1,10 @@
 import { useCallback, useMemo, useState } from 'react'
 import { parseCsv } from '../lib/csv'
+import { buildTable, type OcrDocument, type StatementTotal } from '../lib/pdfRows'
 import { detectColumns, type ColumnMap } from '../lib/columns'
 import { detectDateOrder, type DateOrder } from '../lib/dates'
 import { runImport } from '../lib/import'
-import { formatMoney } from '../lib/money'
+import { formatMoney, parseMoney } from '../lib/money'
 import { useStore } from '../state'
 import type { ImportResult } from '../lib/types'
 
@@ -18,6 +19,14 @@ interface Staged {
   dateOrderCertain: boolean
   positiveIsSpend: boolean
   notes: string[]
+  /** Present when the statement was read from a PDF. */
+  scan?: {
+    pages: number
+    readBy: 'ocr' | 'text-layer'
+    lowestConfidence: number
+    totals: StatementTotal[]
+    ignored: string[]
+  }
 }
 
 const ROLE_LABELS: Record<string, string> = {
@@ -27,6 +36,35 @@ const ROLE_LABELS: Record<string, string> = {
   debit: 'Money out',
   credit: 'Money in',
   balance: 'Balance',
+}
+
+function stagePdf(fileName: string, recognised: string): Staged {
+  const document = JSON.parse(recognised) as OcrDocument
+  const table = buildTable(document)
+  const detection = detectColumns(table.rows)
+  const dataRows = table.rows.slice(detection.firstDataRow)
+  const order = detectDateOrder(dataRows.map((row) => row[detection.map.date] ?? ''))
+
+  return {
+    fileName,
+    rows: table.rows,
+    lineNumbers: table.pages,
+    headers: detection.headers,
+    firstDataRow: detection.firstDataRow,
+    map: detection.map,
+    dateOrder: order.order,
+    dateOrderCertain: order.certain,
+    // Signs come from the statement's own sections, already applied.
+    positiveIsSpend: false,
+    notes: detection.notes,
+    scan: {
+      pages: document.pages,
+      readBy: document.source,
+      lowestConfidence: table.lowestConfidence,
+      totals: table.totals.filter((total) => total.text !== ''),
+      ignored: table.ignored,
+    },
+  }
 }
 
 function stage(fileName: string, content: string): Staged {
@@ -61,7 +99,7 @@ function stage(fileName: string, content: string): Staged {
   }
 }
 
-function runStaged(staged: Staged): ImportResult {
+function runStaged(staged: Staged, mask: boolean): ImportResult {
   const dataRows = staged.rows.slice(staged.firstDataRow)
   return runImport(dataRows, {
     map: staged.map,
@@ -70,31 +108,57 @@ function runStaged(staged: Staged): ImportResult {
     fileName: staged.fileName,
     importedAt: new Date().toISOString(),
     lineNumbers: staged.lineNumbers.slice(staged.firstDataRow),
+    maskAccountNumbers: mask,
   })
 }
 
 export default function ImportPage() {
-  const { commitImport } = useStore()
+  const { commitImport, settings } = useStore()
   const [staged, setStaged] = useState<Staged | null>(null)
   const [message, setMessage] = useState<string | null>(null)
   const [failure, setFailure] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
 
-  const result = useMemo(() => (staged ? runStaged(staged) : null), [staged])
+  const result = useMemo(
+    () => (staged ? runStaged(staged, settings.maskAccountNumbers) : null),
+    [staged, settings.maskAccountNumbers],
+  )
+
+  /** The money-out subtotals the statement prints, added together. */
+  const printedOutflow = useMemo(() => {
+    if (!staged?.scan) return 0
+    let total = 0
+    for (const entry of staged.scan.totals) {
+      if (/deposit|addition/i.test(entry.label)) continue
+      try { total += Math.abs(parseMoney(entry.text).cents) } catch { /* not a figure */ }
+    }
+    return total
+  }, [staged])
 
   const pick = useCallback(async () => {
     setFailure(null)
     setMessage(null)
-    const files = await window.expenses.pickStatements()
-    const usable = files.find((file) => typeof file.content === 'string')
-    if (!usable || typeof usable.content !== 'string') {
-      if (files.length > 0) setFailure(files[0].error ?? 'That file could not be read.')
-      return
+    setBusy(true)
+    try {
+      const files = await window.expenses.pickStatements()
+      const usable = files.find((file) => typeof file.content === 'string')
+      if (!usable || typeof usable.content !== 'string') {
+        if (files.length > 0) setFailure(files[0].error ?? 'That file could not be read.')
+        return
+      }
+      if (files.length > 1) {
+        setMessage(`Showing ${usable.name}. Add it, then pick the next file.`)
+      }
+      setStaged(
+        usable.kind === 'pdf'
+          ? stagePdf(usable.name, usable.content)
+          : stage(usable.name, usable.content),
+      )
+    } catch (error) {
+      setFailure((error as Error).message)
+    } finally {
+      setBusy(false)
     }
-    if (files.length > 1) {
-      setMessage(`Showing ${usable.name}. Add it, then pick the next file.`)
-    }
-    setStaged(stage(usable.name, usable.content))
   }, [])
 
   const onDrop = useCallback(async (event: React.DragEvent) => {
@@ -102,12 +166,18 @@ export default function ImportPage() {
     setFailure(null)
     const file = event.dataTransfer.files[0]
     if (!file) return
+    setBusy(true)
     try {
       const path = window.expenses.pathForFile(file)
       const read = await window.expenses.readStatement(path)
-      setStaged(stage(read.name, read.content))
+      if (typeof read.content !== 'string') throw new Error('That file could not be read.')
+      setStaged(
+        read.kind === 'pdf' ? stagePdf(read.name, read.content) : stage(read.name, read.content),
+      )
     } catch (error) {
       setFailure((error as Error).message)
+    } finally {
+      setBusy(false)
     }
   }, [])
 
@@ -167,14 +237,14 @@ export default function ImportPage() {
         onDragOver={(event) => event.preventDefault()}
         className="rounded-box border-2 border-dashed border-base-content/20 bg-base-100 p-8 text-center"
       >
-        <p className="text-sm opacity-70">Drop a CSV statement here</p>
+        <p className="text-sm opacity-70">Drop a statement here</p>
         <div className="divider text-xs opacity-50">or</div>
-        <button type="button" className="btn btn-primary" onClick={pick}>
-          Choose a file
+        <button type="button" className="btn btn-primary" disabled={busy} onClick={pick}>
+          {busy ? 'Reading…' : 'Choose a file'}
         </button>
         <p className="mt-3 text-xs opacity-60">
-          Export your statement as CSV from online banking. Chase, Bank of America, Wells Fargo,
-          Capital One and Discover layouts are recognised automatically.
+          PDF or CSV. A scanned or screenshotted PDF is read on this Mac using the built-in macOS
+          text recogniser, which takes a few seconds per page and never goes online.
         </p>
       </div>
 
@@ -189,6 +259,22 @@ export default function ImportPage() {
                 </button>
               </div>
 
+              {staged.scan ? (
+                <div className="alert alert-info py-2 text-xs">
+                  {staged.scan.readBy === 'ocr' ? (
+                    <span>
+                      Read from {staged.scan.pages} scanned page
+                      {staged.scan.pages === 1 ? '' : 's'} using the macOS text recogniser, on this
+                      Mac. Recognised text can contain mistakes, so check the totals below before
+                      adding. {staged.scan.ignored.length} line
+                      {staged.scan.ignored.length === 1 ? '' : 's'} were page headings or footers
+                      and are not transactions.
+                    </span>
+                  ) : (
+                    <span>Read from the text embedded in {staged.scan.pages} PDF pages.</span>
+                  )}
+                </div>
+              ) : null}
               {staged.notes.map((note) => (
                 <p key={note} className="text-xs opacity-70">{note}</p>
               ))}
@@ -286,10 +372,68 @@ export default function ImportPage() {
                   <div className="tabular text-lg font-bold">{formatMoney(result.netCents)}</div>
                 </div>
               </div>
-              <p className="text-xs opacity-60">
-                Compare these with the totals printed on your statement. If they differ, the
-                column mapping or the sign convention above is wrong.
-              </p>
+              {staged.scan && staged.scan.totals.length > 0 ? (
+                <div className="rounded-box border border-base-300 p-3">
+                  <h3 className="text-sm font-bold">Checked against your statement's own totals</h3>
+                  <table className="table table-xs mt-2">
+                    <tbody>
+                      {staged.scan.totals.map((total) => {
+                        let printed: number | null = null
+                        try { printed = Math.abs(parseMoney(total.text).cents) } catch { printed = null }
+                        const wantsDeposits = /deposit|addition/i.test(total.label)
+                        const mine = Math.abs(
+                          result.transactions
+                            .filter((txn) => (wantsDeposits ? txn.amountCents > 0 : txn.amountCents < 0))
+                            .reduce((sum, txn) => sum + txn.amountCents, 0),
+                        )
+                        // Only a whole-side total can be compared directly; a
+                        // subtotal is one part of that side.
+                        const comparable = /^total (deposits|withdrawals)/i.test(total.label)
+                        const agrees = printed !== null && printed === mine
+                        return (
+                          <tr key={total.label}>
+                            <td>{total.label}</td>
+                            <td className="tabular text-right">{total.text}</td>
+                            <td className="text-right">
+                              {printed === null ? (
+                                <span className="opacity-50">not a figure</span>
+                              ) : !comparable ? (
+                                <span className="opacity-60">part of the total below</span>
+                              ) : agrees ? (
+                                <span className="badge badge-success badge-sm">matches exactly</span>
+                              ) : (
+                                <span className="badge badge-error badge-sm">
+                                  off by {formatMoney(Math.abs(printed - mine))}
+                                </span>
+                              )}
+                            </td>
+                          </tr>
+                        )
+                      })}
+                      <tr className="border-t border-base-300">
+                        <td className="font-semibold">Subtotals printed for money out, added up</td>
+                        <td className="tabular text-right font-semibold">
+                          {formatMoney(printedOutflow)}
+                        </td>
+                        <td className="text-right">
+                          {printedOutflow === Math.abs(result.outflowCents) ? (
+                            <span className="badge badge-success badge-sm">matches exactly</span>
+                          ) : (
+                            <span className="badge badge-error badge-sm">
+                              off by {formatMoney(Math.abs(printedOutflow - Math.abs(result.outflowCents)))}
+                            </span>
+                          )}
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <p className="text-xs opacity-60">
+                  Compare these with the totals printed on your statement. If they differ, the
+                  column mapping or the sign convention above is wrong.
+                </p>
+              )}
             </div>
           </section>
 

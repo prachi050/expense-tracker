@@ -3,12 +3,14 @@
 export interface PickedFile {
   name: string
   content?: string
+  /** 'pdf' means content is recognised-text JSON, not the raw file. */
+  kind?: 'pdf' | 'text'
   error?: string
 }
 
 export interface ExpensesBridge {
   pickStatements: () => Promise<PickedFile[]>
-  readStatement: (filePath: string) => Promise<{ name: string; content: string }>
+  readStatement: (filePath: string) => Promise<PickedFile>
   load: () => Promise<unknown>
   save: (payload: unknown) => Promise<{ bytes: number; path: string }>
   dataLocation: () => Promise<string>

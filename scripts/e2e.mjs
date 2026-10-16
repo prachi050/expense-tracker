@@ -7,6 +7,8 @@ import { spawn } from 'node:child_process'
 import os from 'node:os'
 import path from 'node:path'
 import fs from 'node:fs/promises'
+import { execFileSync } from 'node:child_process'
+import { fileURLToPath } from 'node:url'
 
 const PORT = 9333
 
@@ -129,6 +131,19 @@ check('large cent value survives', readBack.transactions[1].amountCents, 9007199
 check('quotes and commas survive', readBack.transactions[0].description, 'SMITH, JOHN "ZELLE"')
 check('unicode survives', readBack.transactions[1].description, 'Ünïcøde ✓ émoji 🦠')
 
+// A scanned PDF must go all the way through the app's own file handling:
+// the bundled reader, the IPC boundary and back into the interface.
+const projectRoot = path.dirname(path.dirname(fileURLToPath(import.meta.url)))
+const fixture = path.join(profile, 'fixture.pdf')
+execFileSync(path.join(projectRoot, 'native', 'makefixture'), [fixture])
+
+const pdfRead = await evaluate(`window.expenses.readStatement(${JSON.stringify(fixture)})`)
+check('a PDF is reported as recognised text', pdfRead.kind, 'pdf')
+const recognised = JSON.parse(pdfRead.content)
+check('both pages were read', recognised.pages, 2)
+check('recognition ran, not a text layer', recognised.source, 'ocr')
+check('lines came back with positions', recognised.lines.length > 20, true)
+
 // The window must refuse to go anywhere.
 const navigated = await evaluate(`
   (async () => {
@@ -149,6 +164,10 @@ check('outbound fetch is blocked', blocked, 'blocked')
 socket.close()
 
 electron.kill()
+
+// A full account number must never appear in the file on disk.
+const onDisk = await fs.readFile(path.join(profile, 'expenses.json'), 'utf8')
+check('no long digit run reaches the file', /"description":"[^"]*\d{7,}/.test(onDisk), false)
 
 // The saved file must not be readable by other accounts on the Mac.
 const savedMode = await fs.stat(path.join(profile, 'expenses.json')).then((i) => (i.mode & 0o777).toString(8))
