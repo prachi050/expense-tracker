@@ -1,0 +1,64 @@
+{
+  "name": "expense-tracker",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "node scripts/dev.mjs",
+    "start": "npm run build && electron .",
+    "build": "tsc -b && vite build",
+    "test": "tsx scripts/test-core.ts && tsx scripts/test-import.ts",
+    "lint": "oxlint src",
+    "package": "npm run build && electron-builder --mac --dir",
+    "dmg": "npm run build && electron-builder --mac",
+    "smoke": "npm run build && electron scripts/smoke.cjs",
+    "e2e": "npm run build && node scripts/e2e.mjs",
+    "test:all": "npm test && npm run e2e"
+  },
+  "dependencies": {
+    "@tailwindcss/vite": "^4.3.3",
+    "daisyui": "^5.7.50",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
+    "react-router-dom": "^7.18.4",
+    "tailwindcss": "^4.3.3"
+  },
+  "devDependencies": {
+    "@types/node": "^24.13.3",
+    "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.2.7",
+    "@vitejs/plugin-react": "^6.1.1",
+    "electron": "^44.8.0",
+    "electron-builder": "^26.15.3",
+    "oxlint": "^1.81.0",
+    "tsx": "^4.23.15",
+    "typescript": "~6.0.2",
+    "vite": "^8.3.0"
+  },
+  "allowScripts": {
+    "electron": true
+  },
+  "productName": "Expense Tracker",
+  "description": "Local-only expense tracking from your own bank statements.",
+  "main": "electron/main.cjs",
+  "build": {
+    "appId": "com.prachi.expensetracker",
+    "productName": "Expense Tracker",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**",
+      "electron/**",
+      "package.json"
+    ],
+    "mac": {
+      "category": "public.app-category.finance",
+      "target": [
+        "dir",
+        "dmg"
+      ]
+    }
+  },
+  "author": "Prachi Patel"
+}

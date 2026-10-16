@@ -1,0 +1,35 @@
+@import "tailwindcss";
+@plugin "daisyui" {
+  themes: night --default, winter --prefersdark, nord, dracula, corporate;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+/* The title bar is hidden on macOS, so the top strip is the drag handle. */
+.drag-region {
+  -webkit-app-region: drag;
+}
+.no-drag {
+  -webkit-app-region: no-drag;
+}
+
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+/*
+ * Chart colour. One hue; the light and dark steps are the validated blue from
+ * the data-visualisation palette, chosen for each surface rather than flipped.
+ */
+:root {
+  --viz-series-1: #2a78d6;
+}
+[data-theme="night"],
+[data-theme="dracula"],
+[data-theme="nord"] {
+  --viz-series-1: #3987e5;
+}
