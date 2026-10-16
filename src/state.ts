@@ -21,6 +21,8 @@ export interface StateValue {
   setCategory: (id: string, category: string) => void
   addRule: (rule: UserRule, applyToExisting: boolean) => void
   removeRule: (pattern: string) => void
+  /** Apply a category to every transaction from one merchant, and remember it. */
+  categorizeMerchant: (merchant: string, category: string) => void
   setSetting: <K extends keyof Settings>(key: K, value: Settings[K]) => void
   /** Rewrite stored descriptions to remove account numbers already saved. */
   scrubStoredAccountNumbers: () => Promise<number>

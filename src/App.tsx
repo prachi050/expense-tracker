@@ -1,3 +1,4 @@
+import { useMemo } from 'react'
 import { NavLink, Outlet } from 'react-router-dom'
 import { useStore } from './state'
 
@@ -5,12 +6,23 @@ const LINKS = [
   { to: '/', label: 'Overview', end: true },
   { to: '/income', label: 'Money in' },
   { to: '/transactions', label: 'Transactions' },
+  { to: '/tidy', label: 'Needs a category' },
   { to: '/import', label: 'Import' },
   { to: '/settings', label: 'Settings' },
 ]
 
 export default function App() {
   const { status, error, transactions } = useStore()
+
+  const needingCategory = useMemo(
+    () =>
+      transactions.filter(
+        (txn) =>
+          txn.categorySource !== 'user' &&
+          (txn.category === 'Uncategorized' || txn.ruleConfidence === 'low'),
+      ).length,
+    [transactions],
+  )
 
   return (
     <div className="flex h-full flex-col bg-base-200">
@@ -33,7 +45,10 @@ export default function App() {
                     end={link.end}
                     className={({ isActive }) => (isActive ? 'active font-semibold' : '')}
                   >
-                    {link.label}
+                    <span className="flex-1">{link.label}</span>
+                    {link.to === '/tidy' && needingCategory > 0 ? (
+                      <span className="badge badge-warning badge-sm">{needingCategory}</span>
+                    ) : null}
                   </NavLink>
                 </li>
               ))}

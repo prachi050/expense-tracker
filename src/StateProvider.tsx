@@ -11,6 +11,7 @@ import type { UserRule } from './lib/categorize'
 import { categorize } from './lib/categorize'
 import { EMPTY_DATABASE, readDatabase, type Database, type Settings } from './lib/storage'
 import { maskAccountNumbers } from './lib/redact'
+import { merchantKey } from './lib/merchant'
 import { mergeTransactions } from './lib/import'
 import { StateContext, type StateValue, type Status } from './state'
 
@@ -108,6 +109,23 @@ export function StateProvider({ children }: { children: ReactNode }) {
     [database, persist],
   )
 
+  const categorizeMerchant = useCallback(
+    (merchant: string, category: string) => {
+      const transactions = database.transactions.map((txn) =>
+        merchantKey(txn.description) === merchant
+          ? { ...txn, category, categorySource: 'user' as const, ruleConfidence: 'high' as const }
+          : txn,
+      )
+      // Stored as a rule too, so the next statement files it automatically.
+      const rules = [
+        { pattern: merchant, category },
+        ...database.rules.filter((rule) => rule.pattern !== merchant),
+      ]
+      void persist({ ...database, transactions, rules })
+    },
+    [database, persist],
+  )
+
   const setSetting = useCallback(
     <K extends keyof Settings>(key: K, value: Settings[K]) => {
       void persist({ ...database, settings: { ...database.settings, [key]: value } })
@@ -152,11 +170,12 @@ export function StateProvider({ children }: { children: ReactNode }) {
       setCategory,
       addRule,
       removeRule,
+      categorizeMerchant,
       setSetting,
       scrubStoredAccountNumbers,
       eraseEverything,
     }),
-    [status, error, database, latestImportAt, commitImport, setCategory, addRule, removeRule, setSetting, scrubStoredAccountNumbers, eraseEverything],
+    [status, error, database, latestImportAt, commitImport, setCategory, addRule, removeRule, categorizeMerchant, setSetting, scrubStoredAccountNumbers, eraseEverything],
   )
 
   return <StateContext.Provider value={value}>{children}</StateContext.Provider>

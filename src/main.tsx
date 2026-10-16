@@ -7,6 +7,7 @@ import DashboardPage from './pages/DashboardPage'
 import ImportPage from './pages/ImportPage'
 import IncomePage from './pages/IncomePage'
 import TransactionsPage from './pages/TransactionsPage'
+import TidyPage from './pages/TidyPage'
 import SettingsPage from './pages/SettingsPage'
 import { installDevBridge } from './lib/devBridge'
 import './index.css'
@@ -24,6 +25,7 @@ const router = createHashRouter([
       { index: true, element: <DashboardPage /> },
       { path: 'income', element: <IncomePage /> },
       { path: 'transactions', element: <TransactionsPage /> },
+      { path: 'tidy', element: <TidyPage /> },
       { path: 'import', element: <ImportPage /> },
       { path: 'settings', element: <SettingsPage /> },
       { path: '*', element: <DashboardPage /> },

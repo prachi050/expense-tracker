@@ -7,6 +7,7 @@
  */
 
 import type { TransactionKind } from './types'
+import { merchantOf } from './merchant'
 
 export interface CategoryGuess {
   category: string
@@ -55,18 +56,18 @@ const RULES: { category: Category; confidence: 'high' | 'low'; keywords: string[
   { category: 'Rent & Housing', confidence: 'high', keywords: ['RENT', 'LANDLORD', 'PROPERTY MGMT', 'APARTMENTS', 'MORTGAGE', 'HOA'] },
   { category: 'Utilities', confidence: 'high', keywords: ['ELECTRIC', 'PG&E', 'CON EDISON', 'COMED', 'WATER DEPT', 'GAS COMPANY', 'XFINITY', 'COMCAST', 'SPECTRUM', 'VERIZON', 'AT&T', 'T-MOBILE', 'INTERNET', 'UTILITY'] },
 
-  { category: 'Groceries', confidence: 'high', keywords: ['TRADER JOE', 'WHOLE FOODS', 'SAFEWAY', 'KROGER', 'ALDI', 'COSTCO', 'WALMART GROCERY', 'PUBLIX', 'WEGMANS', 'SPROUTS', 'H MART', 'PATEL BROTHERS', 'GROCERY', 'SUPERMARKET', 'FOOD MART'] },
-  { category: 'Dining & Takeout', confidence: 'high', keywords: ['STARBUCKS', 'MCDONALD', 'CHIPOTLE', 'DOORDASH', 'UBER EATS', 'GRUBHUB', 'POSTMATES', 'DUNKIN', 'SUBWAY', 'PANERA', 'CHICK-FIL-A', 'TACO BELL', 'PIZZA', 'CAFE', 'COFFEE', 'RESTAURANT', 'BAR & GRILL', 'SEAMLESS'] },
+  { category: 'Groceries', confidence: 'high', keywords: ['TRADER JOE', 'WHOLE FOODS', 'WHOLEFDS', 'SAFEWAY', 'KROGER', 'ALDI', 'COSTCO', 'WALMART GROCERY', 'PUBLIX', 'WEGMANS', 'SPROUTS', 'H MART', 'HMART', 'PATEL BROTHERS', 'INSTACART', 'WEEE', 'FRESHDIRECT', 'STOP & SHOP', 'SHOPRITE', 'FOOD BAZAAR', 'KEY FOOD', 'C-TOWN', 'LIDL', 'GIANT', 'HARRIS TEETER', 'FAIRWAY', 'GRISTEDES', 'MORTON WILLIAMS', 'GROCERY', 'SUPERMARKET', 'FOOD MART', 'FARMERS MARKET'] },
+  { category: 'Dining & Takeout', confidence: 'high', keywords: ['STARBUCKS', 'MCDONALD', 'CHIPOTLE', 'DOORDASH', 'UBER EATS', 'UBEREATS', 'GRUBHUB', 'POSTMATES', 'SEAMLESS', 'CAVIAR', 'DUNKIN', 'SUBWAY', 'PANERA', 'CHICK-FIL-A', 'TACO BELL', 'SHAKE SHACK', 'SWEETGREEN', 'CHOPT', 'HALAL GUYS', 'POPEYES', 'WENDY', 'BURGER KING', 'FIVE GUYS', 'DOMINO', 'PAPA JOHN', 'JUNIOR', 'CHEESECAKE', 'OLIVE GARDEN', 'DENNY', 'IHOP', 'PIZZA', 'CAFE', 'CAFÉ', 'COFFEE', 'ESPRESSO', 'RESTAURANT', 'BAR & GRILL', 'DELI', 'DINER', 'SUSHI', 'RAMEN', 'TACO', 'BURRITO', 'NOODLE', 'THAI', 'CURRY', 'BIRYANI', 'DOSA', 'CHAAT', 'JUNCTION'] },
 
-  { category: 'Transport & Fuel', confidence: 'high', keywords: ['UBER', 'LYFT', 'SHELL', 'CHEVRON', 'EXXON', 'BP ', 'MOBIL', 'ARCO', 'SPEEDWAY', 'CIRCLE K', 'PARKING', 'TOLL', 'MTA', 'BART', 'METRO', 'TRANSIT', 'DMV'] },
+  { category: 'Transport & Fuel', confidence: 'high', keywords: ['UBER', 'LYFT', 'SHELL', 'CHEVRON', 'EXXON', 'BP ', 'MOBIL', 'ARCO', 'SPEEDWAY', 'CIRCLE K', 'WAWA', 'QUIKTRIP', 'SUNOCO', 'PARKING', 'TOLL', 'EZPASS', 'E-ZPASS', 'MTA', 'NJ TRANSIT', 'PATH', 'BART', 'METRO', 'TRANSIT', 'SUBWAY MTA', 'CITI BIKE', 'CITIBIKE', 'SMARTECARTE', 'DMV', 'ZIPCAR', 'REVEL'] },
   { category: 'Travel', confidence: 'high', keywords: ['AIRLINES', 'DELTA AIR', 'UNITED AIR', 'SOUTHWEST', 'AMERICAN AIR', 'JETBLUE', 'EXPEDIA', 'BOOKING.COM', 'AIRBNB', 'HOTEL', 'MARRIOTT', 'HILTON', 'HYATT', 'AMTRAK'] },
 
-  { category: 'Subscriptions', confidence: 'high', keywords: ['NETFLIX', 'SPOTIFY', 'HULU', 'DISNEY PLUS', 'DISNEY+', 'YOUTUBE PREMIUM', 'APPLE.COM/BILL', 'ICLOUD', 'ADOBE', 'MICROSOFT 365', 'AMAZON PRIME', 'PATREON', 'SUBSCRIPTION', 'CHATGPT', 'OPENAI', 'ANTHROPIC', 'CLAUDE.AI', 'GITHUB'] },
-  { category: 'Shopping', confidence: 'high', keywords: ['AMAZON', 'TARGET', 'WALMART', 'BEST BUY', 'IKEA', 'HOME DEPOT', 'LOWES', 'ETSY', 'EBAY', 'SHEIN', 'TEMU', 'NORDSTROM', 'MACY', 'TJ MAXX', 'ROSS STORES', 'SEPHORA', 'ULTA'] },
+  { category: 'Subscriptions', confidence: 'high', keywords: ['NETFLIX', 'SPOTIFY', 'HULU', 'DISNEY PLUS', 'DISNEY+', 'MAX.COM', 'PEACOCK', 'PARAMOUNT+', 'YOUTUBE', 'APPLE.COM/BILL', 'APPLE.COM', 'ICLOUD', 'ADOBE', 'MICROSOFT', 'AMAZON PRIME', 'PRIME VIDEO', 'PATREON', 'SUBSTACK', 'MEDIUM', 'NYTIMES', 'SUBSCRIPTION', 'CHATGPT', 'OPENAI', 'ANTHROPIC', 'CLAUDE.AI', 'GITHUB', 'NOTION', 'DROPBOX', 'LINKEDIN', 'AUDIBLE', 'KINDLE', 'CANVA', 'FIGMA'] },
+  { category: 'Shopping', confidence: 'high', keywords: ['AMAZON', 'AMZN', 'TARGET', 'WALMART', 'BEST BUY', 'IKEA', 'HOME DEPOT', 'LOWES', 'ETSY', 'EBAY', 'SHEIN', 'TEMU', 'NORDSTROM', 'MACY', 'TJ MAXX', 'MARSHALLS', 'ROSS STORES', 'SEPHORA', 'ULTA', 'UNIQLO', 'ZARA', 'H&M', 'OLD NAVY', 'GAP', 'NIKE', 'ADIDAS', 'LULULEMON', 'MUJI', 'CONTAINER STORE', 'BED BATH', 'WAYFAIR', 'MICHAELS', 'STAPLES', 'OFFICE DEPOT', 'DOLLAR TREE', 'FIVE BELOW'] },
 
-  { category: 'Health', confidence: 'high', keywords: ['CVS', 'WALGREENS', 'RITE AID', 'PHARMACY', 'DENTAL', 'DENTIST', 'CLINIC', 'HOSPITAL', 'MEDICAL', 'OPTOMETR', 'VISION CENTER', 'LABCORP', 'QUEST DIAGNOSTIC'] },
+  { category: 'Health', confidence: 'high', keywords: ['CVS', 'WALGREENS', 'RITE AID', 'DUANE READE', 'PHARMACY', 'DENTAL', 'DENTIST', 'CLINIC', 'HOSPITAL', 'MEDICAL', 'URGENT CARE', 'ONEMEDICAL', 'ZOCDOC', 'OPTOMETR', 'VISION CENTER', 'LABCORP', 'QUEST DIAGNOSTIC', 'PHYSICAL THERAPY', 'WELLNESS'] },
   { category: 'Insurance', confidence: 'high', keywords: ['GEICO', 'PROGRESSIVE', 'STATE FARM', 'ALLSTATE', 'INSURANCE', 'AETNA', 'CIGNA', 'BLUE CROSS', 'KAISER'] },
-  { category: 'Education', confidence: 'high', keywords: ['TUITION', 'UNIVERSITY', 'COLLEGE', 'BOOKSTORE', 'COURSERA', 'UDEMY', 'STUDENT LOAN', 'SALLIE MAE', 'NELNET'] },
+  { category: 'Education', confidence: 'high', keywords: ['TUITION', 'UNIVERSITY', 'UNIV', 'COLLEGE', 'BOOKSTORE', 'COURSERA', 'UDEMY', 'STUDENT LOAN', 'SALLIE MAE', 'NELNET', 'SCHOLARSHIP', 'REGISTRAR', 'CAMPUS'] },
 
   // Generic words: often right, but worth flagging for a glance.
   { category: 'Dining & Takeout', confidence: 'low', keywords: ['GRILL', 'KITCHEN', 'DELI', 'BAKERY', 'JUICE', 'TEA', 'BISTRO', 'TAVERN'] },
@@ -99,6 +100,10 @@ export function categorize(
   userRules: UserRule[] = [],
 ): CategoryGuess {
   const text = description.toUpperCase()
+  // The merchant alone, with the card wording, processor tag, city and state
+  // stripped. Matching this first avoids a city or a bank word deciding the
+  // category, and catches merchants the full line buries.
+  const merchant = merchantOf(description)
 
   // A rule the user wrote always wins.
   for (const rule of userRules) {
@@ -118,10 +123,12 @@ export function categorize(
     return { category: 'Shopping', confidence: 'low', matched: null }
   }
 
-  for (const rule of RULES) {
-    for (const keyword of rule.keywords) {
-      if (containsKeyword(text, keyword)) {
-        return { category: rule.category, confidence: rule.confidence, matched: keyword }
+  for (const haystack of [merchant, text]) {
+    for (const rule of RULES) {
+      for (const keyword of rule.keywords) {
+        if (containsKeyword(haystack, keyword)) {
+          return { category: rule.category, confidence: rule.confidence, matched: keyword }
+        }
       }
     }
   }

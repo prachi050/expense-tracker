@@ -19,8 +19,18 @@ same day are both kept.
 
 **A guess.** The category. It is keyword matching, so it will be wrong
 sometimes. Every category is a dropdown you can change, your change is never
-overwritten, and anything the app was unsure about is flagged with a warning
-colour and a "needs a look" filter.
+overwritten, and anything the app was unsure about is flagged.
+
+Matching runs against the merchant rather than the raw line. A bank
+description is mostly noise, so the card wording, the card number, the
+payment processor's tag, the city and the state are stripped first: `SQ
+*FRAME COFFEE SOHO New York NY` becomes `FRAME COFFEE SOHO`. Without that,
+a processor tag hides the merchant and a city name can decide the category.
+
+Whatever is left over appears on **Needs a category**, grouped by merchant and
+ordered by how much money is involved. Picking a category there settles every
+transaction from that merchant at once and is remembered, so the next
+statement files it automatically.
 
 Before anything is saved, the import screen shows money in, money out and the
 net, so you can check them against the totals printed on your statement.
@@ -79,6 +89,8 @@ npm run test:all
 - `scripts/e2e.mjs` starts the real app and drives it over the DevTools
   protocol: data round trips through disk unchanged, the sandbox holds,
   navigation is blocked and outbound requests fail.
+- `scripts/test-merchant.ts` covers pulling the merchant out of a description
+  and the categories that depend on it.
 - `scripts/test-pdfrows.ts` covers rebuilding rows from recognised text, using
   invented figures in a scanned statement's layout.
 - `scripts/test-pdf-e2e.ts` generates a fake scanned statement, reads it back
@@ -121,6 +133,7 @@ can set the columns, the day/month order and the sign convention yourself.
 | `src/lib/dates.ts` | Date parsing; day/month order decided per column, not per row. |
 | `src/lib/columns.ts` | Works out which column is which. |
 | `src/lib/import.ts` | Normalising, error collection, duplicate detection. |
+| `src/lib/merchant.ts` | Finding the merchant inside a bank description. |
 | `src/lib/categorize.ts` | Keyword rules and your own overrides. |
 | `src/lib/income.ts` | Zelle and deposit detection, sender name extraction. |
 | `electron/main.cjs` | Window, security policy, file and storage operations. |

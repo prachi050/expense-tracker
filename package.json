@@ -7,7 +7,7 @@
     "dev": "node scripts/dev.mjs",
     "start": "npm run build && electron .",
     "build": "npm run build:native && tsc -b && vite build",
-    "test": "tsx scripts/test-core.ts && tsx scripts/test-redact.ts && tsx scripts/test-pdfrows.ts && tsx scripts/test-import.ts && tsx scripts/test-pdf-e2e.ts",
+    "test": "tsx scripts/test-core.ts && tsx scripts/test-redact.ts && tsx scripts/test-merchant.ts && tsx scripts/test-pdfrows.ts && tsx scripts/test-import.ts && tsx scripts/test-pdf-e2e.ts",
     "lint": "oxlint src",
     "package": "npm run build && electron-builder --mac --dir",
     "dmg": "npm run build && electron-builder --mac",

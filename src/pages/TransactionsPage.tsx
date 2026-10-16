@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { CATEGORIES } from '../lib/categorize'
 import { formatDate, formatMonth, monthKey } from '../lib/dates'
 import { formatMoney } from '../lib/money'
@@ -42,13 +43,16 @@ export default function TransactionsPage() {
           </p>
         </div>
         {unsureCount > 0 ? (
-          <button
-            type="button"
-            className={`btn btn-sm ${onlyUnsure ? 'btn-warning' : 'btn-outline btn-warning'}`}
-            onClick={() => setOnlyUnsure((value) => !value)}
-          >
-            {unsureCount} need{unsureCount === 1 ? 's' : ''} a look
-          </button>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              className={`btn btn-sm ${onlyUnsure ? 'btn-warning' : 'btn-outline btn-warning'}`}
+              onClick={() => setOnlyUnsure((value) => !value)}
+            >
+              {unsureCount} need{unsureCount === 1 ? 's' : ''} a look
+            </button>
+            <Link to="/tidy" className="btn btn-sm btn-primary">Fix by merchant</Link>
+          </div>
         ) : null}
       </header>
 
