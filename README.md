@@ -33,9 +33,21 @@ net, so you can check them against the totals printed on your statement.
   only way it touches a file is through named operations in `electron/preload.cjs`.
 - Navigating away from the app and opening new windows are both refused.
 - All permission requests (camera, location and the rest) are denied.
-- Data lives in one JSON file under Application Support. Saves write to a
+- Data lives in one JSON file under Application Support, written with
+  owner-only permissions (0600), as are backups and exports. Saves write to a
   temporary file and rename, and keep the previous version as a backup, so an
   interrupted save cannot leave a half-written file.
+
+### What is kept from a statement
+
+Only the date, description, amount and running balance are stored. Columns
+such as "Card No." or "Account Number" are never imported, even when the file
+has them.
+
+Descriptions are kept exactly as the bank wrote them, so if a description
+itself contains an account number, for example `ONLINE TRANSFER TO ACCT
+987654321098`, that text is stored. The file is not encrypted, so it is
+protected by your Mac account and by FileVault if you have it on.
 - If that file ever cannot be read, the app shows an error instead of starting
   empty, because starting empty would overwrite it on the next save.
 

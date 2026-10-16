@@ -157,12 +157,17 @@ ipcMain.handle('data:save', async (_event, payload) => {
   // an interrupted save can never leave a half-written database behind.
   try {
     await fs.copyFile(target, backupFile())
+    await fs.chmod(backupFile(), 0o600)
   } catch (error) {
     if (!error || error.code !== 'ENOENT') throw error
   }
 
+  // 0o600: readable and writable by this account only. The enclosing folder
+  // is already owner-only, but the file holds statement descriptions that can
+  // contain account numbers, so it should not rely on that alone.
   const temporary = `${target}.tmp`
-  await fs.writeFile(temporary, serialised, 'utf8')
+  await fs.writeFile(temporary, serialised, { encoding: 'utf8', mode: 0o600 })
+  await fs.chmod(temporary, 0o600)
   await fs.rename(temporary, target)
   return { bytes: Buffer.byteLength(serialised), path: target }
 })
@@ -180,6 +185,8 @@ ipcMain.handle('data:export', async (_event, { suggestedName, contents }) => {
     filters: [{ name: 'CSV', extensions: ['csv'] }],
   })
   if (result.canceled || !result.filePath) return { saved: false }
-  await fs.writeFile(result.filePath, contents, 'utf8')
+  // An export carries the same descriptions, so it gets the same protection.
+  await fs.writeFile(result.filePath, contents, { encoding: 'utf8', mode: 0o600 })
+  await fs.chmod(result.filePath, 0o600)
   return { saved: true, path: result.filePath }
 })

@@ -147,7 +147,12 @@ const blocked = await evaluate(`
 check('outbound fetch is blocked', blocked, 'blocked')
 
 socket.close()
+
 electron.kill()
+
+// The saved file must not be readable by other accounts on the Mac.
+const savedMode = await fs.stat(path.join(profile, 'expenses.json')).then((i) => (i.mode & 0o777).toString(8))
+check('saved file is owner-only', savedMode, '600')
 
 // The real database must be untouched by this run.
 const realFile = path.join(os.homedir(), 'Library', 'Application Support', 'Expense Tracker', 'expenses.json')
