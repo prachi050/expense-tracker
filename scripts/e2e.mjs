@@ -9,9 +9,21 @@ import path from 'node:path'
 import fs from 'node:fs/promises'
 
 const PORT = 9333
-const electron = spawn('npx', ['electron', '.', `--remote-debugging-port=${PORT}`], {
-  stdio: ['ignore', 'pipe', 'pipe'],
-})
+
+// Run against a throwaway profile. Without this the test would write its
+// sample database over the real one in Application Support, destroying
+// whatever statements had been imported.
+// realpath, because macOS reports /var as /private/var and the paths must
+// compare equal.
+const profile = await fs.realpath(
+  await fs.mkdtemp(path.join(os.tmpdir(), 'expense-tracker-e2e-')),
+)
+
+const electron = spawn(
+  'npx',
+  ['electron', '.', `--remote-debugging-port=${PORT}`, `--user-data-dir=${profile}`],
+  { stdio: ['ignore', 'pipe', 'pipe'] },
+)
 const logs = []
 electron.stdout.on('data', (d) => logs.push(String(d)))
 electron.stderr.on('data', (d) => logs.push(String(d)))
@@ -30,6 +42,20 @@ async function targets() {
   }
   throw new Error('Electron never exposed a debugging target')
 }
+
+async function stat(file) {
+  try {
+    const info = await fs.stat(file)
+    return { exists: true, size: info.size, modified: info.mtimeMs }
+  } catch {
+    return { exists: false }
+  }
+}
+
+// Recorded before the app starts, compared again at the end.
+const realFileState = await stat(
+  path.join(os.homedir(), 'Library', 'Application Support', 'Expense Tracker', 'expenses.json'),
+)
 
 const page = await targets()
 const socket = new WebSocket(page.webSocketDebuggerUrl)
@@ -80,7 +106,7 @@ check('renderer mounted', mounted, true)
 check('no node in renderer', await evaluate(`typeof window.require === 'undefined' && typeof window.process === 'undefined'`), true)
 
 const where = await evaluate(`window.expenses.dataLocation()`)
-check('data path is inside Application Support', where.includes('Application Support'), true)
+check('writes only inside the throwaway profile', where, profile)
 
 // Round trip a database with awkward values through the real save and load.
 const payload = {
@@ -122,6 +148,14 @@ check('outbound fetch is blocked', blocked, 'blocked')
 
 socket.close()
 electron.kill()
+
+// The real database must be untouched by this run.
+const realFile = path.join(os.homedir(), 'Library', 'Application Support', 'Expense Tracker', 'expenses.json')
+const realBefore = realFileState
+const realAfter = await stat(realFile)
+check('real database untouched', realAfter, realBefore)
+
+await fs.rm(profile, { recursive: true, force: true })
 
 const failed = checks.filter((c) => !c.ok)
 for (const c of checks) {
