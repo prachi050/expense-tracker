@@ -58,8 +58,8 @@ such as "Card No." or "Account Number" are never imported, even when the file
 has them.
 
 Descriptions are kept exactly as the bank wrote them, so if a description
-itself contains an account number, for example `ONLINE TRANSFER TO ACCT
-987654321098`, that text is stored. The file is not encrypted, so it is
+itself contains an account number, such as an online transfer that names
+the receiving account, that text is stored. The file is not encrypted, so it is
 protected by your Mac account and by FileVault if you have it on.
 - If that file ever cannot be read, the app shows an error instead of starting
   empty, because starting empty would overwrite it on the next save.
