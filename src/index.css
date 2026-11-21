@@ -1,6 +1,9 @@
 @import "tailwindcss";
 @plugin "daisyui" {
-  themes: night --default, winter --prefersdark, nord, dracula, corporate;
+  /* --default is the theme when the OS asks for light, --prefersdark when it
+     asks for dark. These two were the wrong way round, which went unnoticed
+     because index.html pinned data-theme="night" and overrode both. */
+  themes: winter --default, night --prefersdark, nord, dracula, corporate;
 }
 
 html,
@@ -32,4 +35,14 @@ body,
 [data-theme="dracula"],
 [data-theme="nord"] {
   --viz-series-1: #3987e5;
+}
+/*
+ * A theme applied through --prefersdark sets no data-theme attribute, so the
+ * rule above cannot see it. Without this the chart would keep its light blue
+ * on a dark background. The selectors above still cover a theme picked by hand.
+ */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --viz-series-1: #3987e5;
+  }
 }

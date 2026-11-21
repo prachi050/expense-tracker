@@ -25,9 +25,13 @@ func fail(_ message: String) -> Never {
 let arguments = CommandLine.arguments
 guard arguments.count >= 2 else { fail("usage: pdftext <file.pdf> [scale]") }
 let path = arguments[1]
+// A page can carry a little text and still hold its real content in a picture,
+// such as a table or a diagram. This forces recognition for every page.
+let forceOcr = arguments.contains("--force-ocr")
 // Scanned statements are often low resolution; rendering above 1:1 gives the
 // recogniser more to work with.
-let scale = arguments.count >= 3 ? (Double(arguments[2]) ?? 3.0) : 3.0
+let scaleArgument = arguments.dropFirst(2).first { Double($0) != nil }
+let scale = scaleArgument.flatMap(Double.init) ?? 3.0
 
 guard let document = PDFDocument(url: URL(fileURLWithPath: path)) else {
     fail("could not open the PDF")
@@ -40,7 +44,8 @@ for pageIndex in 0..<document.pageCount {
     guard let page = document.page(at: pageIndex) else { continue }
 
     // If the page already carries real text, use it; it is exact.
-    if let embedded = page.string, embedded.trimmingCharacters(in: .whitespacesAndNewlines).count > 40 {
+    if !forceOcr, let embedded = page.string,
+       embedded.trimmingCharacters(in: .whitespacesAndNewlines).count > 40 {
         anyTextLayer = true
         for raw in embedded.components(separatedBy: .newlines) {
             let text = raw.trimmingCharacters(in: .whitespaces)

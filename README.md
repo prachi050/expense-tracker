@@ -143,3 +143,7 @@ can set the columns, the day/month order and the sign convention yourself.
 | `src/lib/pdfRows.ts` | Rebuilding statement rows from recognised text and position. |
 | `native/pdftext.swift` | Renders PDF pages and runs the macOS text recogniser. |
 | `electron/preload.cjs` | The only bridge between the interface and the disk. |
+
+## About
+
+Designed by Prachi Patel. Portfolio: [prachipatel.dev](https://prachipatel.dev)
